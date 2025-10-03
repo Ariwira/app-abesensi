@@ -25,12 +25,16 @@ def format_dengan_spasi(df, group_by_col='Department'):
 
 def analisis_absensi_lanjutan(file_obj, min_durasi_menit):
     try:
-        if file_obj.name.endswith('.xlsx'):
-            df = pd.read_excel(file_obj)
-        elif file_obj.name.endswith('.csv'):
+        # <<< PERUBAHAN DI SINI: Logika pembaca file diperbarui >>>
+        file_name = file_obj.name
+        if file_name.endswith(('.xlsx', '.xls')):
+            # Gunakan engine yang sesuai untuk xls dan xlsx
+            engine = 'xlrd' if file_name.endswith('.xls') else 'openpyxl'
+            df = pd.read_excel(file_obj, engine=engine)
+        elif file_name.endswith('.csv'):
             df = pd.read_csv(file_obj)
         else:
-            st.error("Format file tidak didukung. Harap gunakan .xlsx atau .csv")
+            st.error("Format file tidak didukung.")
             return None, None, None
         
         df.columns = df.columns.str.strip()
@@ -93,21 +97,20 @@ def analisis_absensi_lanjutan(file_obj, min_durasi_menit):
 st.title("📊 Aplikasi Analisis Data Absensi")
 st.write("Unggah file absensi mentah Anda untuk mendapatkan rekap shift yang valid, laporan anomali, dan data mentah dalam satu file Excel.")
 
-# Opsi di sidebar
 with st.sidebar:
     st.header("⚙️ Pengaturan")
     min_durasi = st.number_input(
         "Durasi shift valid minimum (menit)", 
         min_value=0, 
-        value=480,  # Default 8 jam
+        value=480,
         step=15,
         help="Shift yang lebih pendek dari ini akan dianggap anomali."
     )
     
-# File uploader
+# <<< PERUBAHAN DI SINI: Tipe file '.xls' ditambahkan >>>
 uploaded_file = st.file_uploader(
-    "Pilih file absensi (.xlsx, .xls atau .csv)", 
-    type=['xlsx','xls', 'csv']
+    "Pilih file absensi (.xlsx, .xls, atau .csv)", 
+    type=['xlsx', 'xls', 'csv']
 )
 
 if uploaded_file is not None:
@@ -116,13 +119,9 @@ if uploaded_file is not None:
     if st.button("🚀 Proses Sekarang!"):
         with st.spinner("Mohon tunggu, sedang menganalisis data..."):
             data_mentah, rekap_final, anomali_final = analisis_absensi_lanjutan(uploaded_file, min_durasi)
-
             if data_mentah is not None:
-                # Format dengan spasi
                 rekap_final_spaced = format_dengan_spasi(rekap_final, 'Department')
                 anomali_final_spaced = format_dengan_spasi(anomali_final, 'Department')
-                
-                # Simpan ke memori dalam format Excel
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     if rekap_final_spaced is not None and not rekap_final_spaced.empty:
@@ -132,16 +131,12 @@ if uploaded_file is not None:
                     else:
                         pd.DataFrame([{'Status': 'Tidak ada anomali yang ditemukan'}]).to_excel(writer, sheet_name='Laporan Anomali', index=False)
                     data_mentah.to_excel(writer, sheet_name='Data Mentah', index=False)
-                
                 output.seek(0)
                 st.balloons()
                 st.header("✅ Analisis Selesai!")
-                
-                # Tombol download
                 st.download_button(
                     label="📥 Unduh Hasil Analisis (File Excel)",
                     data=output,
                     file_name='Hasil_Analisis_Absensi.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-                )
-
+            )
