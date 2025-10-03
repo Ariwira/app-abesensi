@@ -9,8 +9,24 @@ st.set_page_config(
     layout="centered"
 )
 
-# --- FUNGSI UTAMA UNTUK ANALISIS (diambil dari skrip sebelumnya) ---
+# <<< FUNGSI BARU: Untuk menyesuaikan lebar kolom di Excel secara otomatis >>>
+def auto_fit_columns(writer, sheet_name, df):
+    """
+    Menyesuaikan lebar kolom pada sheet Excel berdasarkan konten terpanjang.
+    """
+    worksheet = writer.sheets[sheet_name]
+    for idx, col in enumerate(df):
+        series = df[col]
+        max_len = max(
+            (series.astype(str).map(len).max(), len(str(series.name)))
+        ) + 2  # Menambahkan sedikit padding
+        worksheet.column_dimensions[chr(idx + 65)].width = max_len
+
+
 def format_dengan_spasi(df, group_by_col='Department'):
+    """
+    Fungsi untuk mengambil DataFrame dan menambahkan baris kosong antar grup.
+    """
     if df is None or df.empty:
         return df
     df = df.sort_values(by=[group_by_col, 'Name', 'Date' if 'Date' in df.columns else 'Tanggal'])
@@ -24,11 +40,12 @@ def format_dengan_spasi(df, group_by_col='Department'):
     return pd.concat(all_dfs, ignore_index=True)
 
 def analisis_absensi_lanjutan(file_obj, min_durasi_menit):
+    """
+    Fungsi utama untuk memproses dan menganalisis data absensi.
+    """
     try:
-        # <<< PERUBAHAN DI SINI: Logika pembaca file diperbarui >>>
         file_name = file_obj.name
         if file_name.endswith(('.xlsx', '.xls')):
-            # Gunakan engine yang sesuai untuk xls dan xlsx
             engine = 'xlrd' if file_name.endswith('.xls') else 'openpyxl'
             df = pd.read_excel(file_obj, engine=engine)
         elif file_name.endswith('.csv'):
@@ -107,7 +124,6 @@ with st.sidebar:
         help="Shift yang lebih pendek dari ini akan dianggap anomali."
     )
     
-# <<< PERUBAHAN DI SINI: Tipe file '.xls' ditambahkan >>>
 uploaded_file = st.file_uploader(
     "Pilih file absensi (.xlsx, .xls, atau .csv)", 
     type=['xlsx', 'xls', 'csv']
@@ -125,12 +141,24 @@ if uploaded_file is not None:
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
                     if rekap_final_spaced is not None and not rekap_final_spaced.empty:
-                        rekap_final_spaced.to_excel(writer, sheet_name='Rekap Shift Valid', index=False)
+                        sheet_name_rekap = 'Rekap Shift Valid'
+                        rekap_final_spaced.to_excel(writer, sheet_name=sheet_name_rekap, index=False)
+                        # <<< PEMANGGILAN FUNGSI BARU (1/3) >>>
+                        auto_fit_columns(writer, sheet_name_rekap, rekap_final_spaced)
+
                     if anomali_final_spaced is not None and not anomali_final_spaced.empty:
-                        anomali_final_spaced.to_excel(writer, sheet_name='Laporan Anomali', index=False)
+                        sheet_name_anomali = 'Laporan Anomali'
+                        anomali_final_spaced.to_excel(writer, sheet_name=sheet_name_anomali, index=False)
+                        # <<< PEMANGGILAN FUNGSI BARU (2/3) >>>
+                        auto_fit_columns(writer, sheet_name_anomali, anomali_final_spaced)
                     else:
                         pd.DataFrame([{'Status': 'Tidak ada anomali yang ditemukan'}]).to_excel(writer, sheet_name='Laporan Anomali', index=False)
-                    data_mentah.to_excel(writer, sheet_name='Data Mentah', index=False)
+                    
+                    sheet_name_mentah = 'Data Mentah'
+                    data_mentah.to_excel(writer, sheet_name=sheet_name_mentah, index=False)
+                    # <<< PEMANGGILAN FUNGSI BARU (3/3) >>>
+                    auto_fit_columns(writer, sheet_name_mentah, data_mentah)
+
                 output.seek(0)
                 st.balloons()
                 st.header("✅ Analisis Selesai!")
@@ -139,4 +167,4 @@ if uploaded_file is not None:
                     data=output,
                     file_name='Hasil_Analisis_Absensi.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-            )
+    )
