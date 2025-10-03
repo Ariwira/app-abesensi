@@ -106,8 +106,8 @@ with st.sidebar:
     
 # File uploader
 uploaded_file = st.file_uploader(
-    "Pilih file absensi (.xlsx atau .csv)", 
-    type=['xlsx', 'csv']
+    "Pilih file absensi (.xlsx, .xls atau .csv)", 
+    type=['xlsx','xls', 'csv']
 )
 
 if uploaded_file is not None:
@@ -144,3 +144,4 @@ if uploaded_file is not None:
                     file_name='Hasil_Analisis_Absensi.xlsx',
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 )
+
